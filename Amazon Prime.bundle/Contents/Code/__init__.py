@@ -24,9 +24,7 @@ def Start():
 	MediaContainer.viewGroup = "List"
 
 	DirectoryItem.thumb = R(ICON)
-
-
-
+    
 	####################################################################################################
 
 def MainMenu():
@@ -43,6 +41,7 @@ def MainMenu():
     dir.Append(Function(DirectoryItem(Library, "Your Library")))
 
     dir.Append(PrefsItem(L('Preferences'), thumb=R(ICON)))
+    #Login()
     return dir
 
 
@@ -76,9 +75,9 @@ def Search(sender, query, url = None, tvSearch=True):
 
 
 def Login():
-    x = HTTP.Request('https://www.amazon.com/?tag=%s' % ASSOC_TAG, errors='replace')
-    x = HTTP.Request('https://www.amazon.com/gp/sign-in.html?tag=%s' % ASSOC_TAG, errors='replace')
-    cookies = HTTP.GetCookiesForURL('https://www.amazon.com/gp/sign-in.html?tag=%s' % ASSOC_TAG)
+    x = HTTP.Request('https://www.amazon.com/', errors='replace')
+    x = HTTP.Request('https://www.amazon.com/gp/sign-in.html', errors='replace')
+    cookies = HTTP.GetCookiesForURL('https://www.amazon.com/gp/sign-in.html')
 
     sessId = None
     
@@ -95,10 +94,10 @@ def Login():
         'x': '62',
         'y': '11'
     }
-    x = HTTP.Request('https://www.amazon.com/gp/flex/sign-in/select.html?ie=UTF8&protocol=https&tag=%s' % ASSOC_TAG,values=params,errors='replace')
+    x = HTTP.Request('https://www.amazon.com/gp/flex/sign-in/select.html?ie=UTF8&protocol=https',values=params,errors='replace')
 
 
-
+    Log.Debug("Attempted Login...")
     
 
 def Library(sender):
@@ -172,16 +171,16 @@ def TVList(sender, url=None, usedSelections = None):
     shownUnorganized = False
     
     tvPage = HTML.ElementFromURL("http://www.amazon.com" + url)
+	
+    links = tvPage.xpath('//div[@id="atfResults"]/ul/li/div[1]/a/@href')    
     
-    links = tvPage.xpath("//div[@id='refinements']//h2[. = 'TV Show']/following-sibling::ul[1 = count(preceding-sibling::h2[1] | ../h2[. = 'TV Show'])]/li/a/@href")    
-
+    Log.Debug ("Link Length: " + str(len(links)))
+        
     if (len(links) > 0):
         tvShowsLink = links[len(links)-1]
+        Log.Debug ("TV Show Links: " + str(len(tvShowsLink)))
         
-        if "sr_sa_p_lbr_tv_series_brow" in tvShowsLink:
-            dir.Append(Function(DirectoryItem(TVShows, "Shows"), url=tvShowsLink))
-        else:
-            dir.Append(Function(DirectoryItem(TVShowsNotNice, "Shows"), url=url))
+        dir.Append(Function(DirectoryItem(TVShows, "Shows"), url=tvShowsLink))
 
     else:
         dir.Append(Function(DirectoryItem(ResultsList, "All TV Shows (Unorganized)"), url=url, onePage=True))
@@ -214,15 +213,7 @@ def TVList(sender, url=None, usedSelections = None):
     if not shownUnorganized:
         dir.Append(Function(DirectoryItem(ResultsList, "All TV Shows (Unorganized)"), url=url, onePage=True))
 
-        
-        
-   
-        
     return dir
-    
-    
-    
-        
 
 
 
@@ -278,24 +269,18 @@ def TVNotNiceSubCategories(sender, url=None, category=None, usedSelections=None)
         dir.Append(Function(DirectoryItem(TVList, title=sortedPairs[i][0]), usedSelection=usedSelection, url=sortedPairs[i][1]))
     
     return dir
-
-    
-    
-    
-    
-    
     
 
 def TVShows(sender, url=None):
-    tvShowPage = HTML.ElementFromURL("http://www.amazon.com" + url)
+    tvShowPage = HTML.ElementFromURL(url)
     
-    listOfShowsLinks = tvShowPage.xpath("//*[@class='c3_ref refList']//a/@href")
-    listOfShows = tvShowPage.xpath("//*[@class='c3_ref refList']//a")
+    listOfShowsLinks = tvShowPage.xpath('//*[@class="aiv-container-limited episode-list"]/ul/li/div/p/a/@href')
+    listOfShows = tvShowPage.xpath('//*[@class="aiv-container-limited episode-list"]/ul/li/div/p/a')
     
     dir = MediaContainer(viewMode="list")
     
     if len(listOfShows) > 0:
-        listOfShowsNames = listOfShows[0].xpath("//*[@class='refinementLink']/text()")
+        listOfShowsNames = listOfShows[0].xpath('//*[@class="aiv-container-limited episode-list"]/ul/li/div/p/a/text()')
     
 
         
@@ -350,12 +335,10 @@ def ResultsList(sender, url = None, onePage=False, tvList = True, sort=False):
         if len(seasonsPage.xpath("//*[@id='atfResults' or @id='btfResults']")) > 0:
             listOfSeasons = seasonsPage.xpath("//*[@id='atfResults' or @id='btfResults']")[0]
     
-            listOfSeasonsNames = listOfSeasons.xpath('//*[@class="title"]/a/text()')
-            listOfSeasonsLinks = listOfSeasons.xpath('//*[@class="title"]/a/@href')
-            listOfSeasonsImages = listOfSeasons.xpath('//*[@class="image"]/a/img/@src')
+            listOfSeasonsNames = listOfSeasons.xpath('//*[@class="ilt2"]/text()')
+            listOfSeasonsLinks = listOfSeasons.xpath('//*[@class="ild2"]/a/@href')
+            listOfSeasonsImages = listOfSeasons.xpath('//*[@class="imageBox"]/img/@src')
             
-            Log(listOfSeasonsLinks[0].partition('/ref=sr_')[0].rpartition('/dp/')[2])
-
             for i in range(0, len(listOfSeasonsNames)):
                 seasons.append((listOfSeasonsNames[i], listOfSeasonsLinks[i], listOfSeasonsImages[i], listOfSeasonsLinks[i].partition('/ref=sr_')[0].rpartition('/dp/')[2]))
 
@@ -407,23 +390,33 @@ def ResultsList(sender, url = None, onePage=False, tvList = True, sort=False):
 def TVIndividualSeason(sender, url = None):
     episodesPage = HTML.ElementFromURL(url)
     
-    listOfEpisodesTable = episodesPage.xpath('//*[@class="episodeRow" or @class="episodeRow current"]')
+    listOfEpisodesTable = episodesPage.xpath('//*[@class="aiv-container-limited episode-list"]/ul/li')
     
     listOfEpisodesTitles = list()
     listOfEpisodesASIN = list()
     listOfEpisodesSummaries = list()
     
     for i in range(0, len(listOfEpisodesTable)):
-        listOfEpisodesTitles.append(listOfEpisodesTable[i].xpath('td/div/text()')[0])
-        listOfEpisodesASIN.append(listOfEpisodesTable[i].xpath('@asin')[0])
-        listOfEpisodesSummaries.append(listOfEpisodesTable[i].xpath('td/div/text()')[1])
+        listOfEpisodesTitles.append(listOfEpisodesTable[i].xpath('div/p/a/text()')[0])
+        
+        asin = ""
+        asin = listOfEpisodesTable[i].xpath('div/p/a/@href')[0]
+        asin = asin[33:-14]
 
-    dir = MediaContainer(viewMode="list")
+        Log.Debug("ASIN #: " + str(i) + asin)
+        
+        listOfEpisodesASIN.append(asin)
+        # listOfEpisodesSummaries.append(listOfEpisodesTable[i].xpath('div/p/text()')[0])
+        listOfEpisodesSummaries.append("This is a summary")
+        
+        # Log.Debug("Summary #: " + str(i) + listOfEpisodesTable[i].xpath('div/p/text()')[0])
+
+        dir = MediaContainer(viewMode="list")
     
     for i in range(0, len(listOfEpisodesTable)):
         dir.Append(
             WebVideoItem(
-                url="http://www.amazon.com/gp/video/streaming/mini-mode.html?asin=" + listOfEpisodesASIN[i],
+                url="http://www.amazon.com/gp/video/streaming/mini-mode.html?asin=" + listOfEpisodesASIN[i] + "&player=flash",
                 title = listOfEpisodesTitles[i],
                 summary = listOfEpisodesSummaries[i]
                 )
