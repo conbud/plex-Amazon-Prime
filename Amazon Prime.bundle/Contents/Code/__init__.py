@@ -50,7 +50,6 @@ def SearchMenu(sender):
     dir.Append(Function(InputDirectoryItem(Search, "Search Movies", "Search Amazon Prime for Movies", thumb = R(ICON)), tvSearch=False))
     dir.Append(Function(InputDirectoryItem(Search, "Search TV Shows", "Search Amazon Prime for TV Shows", thumb = R(ICON))))
     
-    
     return dir
 
 
